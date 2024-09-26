@@ -26,6 +26,11 @@ import {
 	Paper,
 	ToggleButton,
 	ToggleButtonGroup,
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogActions,
+	DialogContentText,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
@@ -57,6 +62,8 @@ const FileExplorerScreen: React.FC = () => {
 	const [uploadOpen, setUploadOpen] = useState<boolean>(false);
 	const [newFolderOpen, setNewFolderOpen] = useState<boolean>(false); // 新規フォルダモーダルの状態
 	const [viewMode, setViewMode] = useState<"table" | "grid">("grid"); // 表示モードの状態
+	const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null); // 追加
+	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false); // 追加
 	const navigate = useNavigate();
 	const location = useLocation();
 	const currentPath =
@@ -112,17 +119,32 @@ const FileExplorerScreen: React.FC = () => {
 	};
 
 	const handleDelete = async (file: FileItem) => {
+		setFileToDelete(file); // 追加
+		setConfirmDeleteOpen(true); // 追加
+	};
+
+	const handleCancelDelete = () => {
+		setConfirmDeleteOpen(false);
+		setFileToDelete(null);
+	};
+
+	const handleConfirmDelete = async () => {
+		if (!fileToDelete) return;
 		try {
-			if (file.type === "directory") {
-				await client?.deleteFile(file.filename); // ディレクトリの場合はrecursiveオプション
+			if (fileToDelete.type === "directory") {
+				await client?.deleteFile(fileToDelete.filename); // recursive オプションの追加
 			} else {
-				await client?.deleteFile(file.filename); // ファイルの場合
+				await client?.deleteFile(fileToDelete.filename);
 			}
 			// ファイルリストを更新
 			fetchFiles();
+			setConfirmDeleteOpen(false);
+			setFileToDelete(null);
 		} catch (err) {
 			console.error(err);
 			setError("削除に失敗しました。");
+			setConfirmDeleteOpen(false);
+			setFileToDelete(null);
 		}
 	};
 
@@ -292,7 +314,7 @@ const FileExplorerScreen: React.FC = () => {
 					</TableContainer>
 				) : (
 					<Grid container rowSpacing={6} columnSpacing={2}>
-						{files.map((file) => (
+						{files.slice(0, 99).map((file) => (
 							<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
 								<Box
 									sx={{
@@ -365,6 +387,30 @@ const FileExplorerScreen: React.FC = () => {
 				currentPath={currentPath}
 				onFolderCreated={handleFolderCreated} // フォルダ作成後に呼び出す
 			/>
+
+			{/* 確認ダイアログの追加 */}
+			<Dialog open={confirmDeleteOpen} onClose={handleCancelDelete}>
+				<DialogTitle>ファイルの削除確認</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						{fileToDelete
+							? `${fileToDelete.basename} を削除してもよろしいですか？`
+							: ""}
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={handleCancelDelete} color="primary">
+						キャンセル
+					</Button>
+					<Button
+						onClick={handleConfirmDelete}
+						color="error"
+						variant="contained"
+					>
+						削除
+					</Button>
+				</DialogActions>
+			</Dialog>
 
 			{/* Error Snackbar */}
 			<Snackbar
