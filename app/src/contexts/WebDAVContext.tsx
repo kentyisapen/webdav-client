@@ -8,6 +8,7 @@ interface WebDAVContextProps {
 	connect: (url: string) => Promise<void>;
 	disconnect: () => void;
 	baseUrl: string | null;
+	loading: boolean; // 追加
 }
 
 export const WebDAVContext = createContext<WebDAVContextProps>({
@@ -15,6 +16,7 @@ export const WebDAVContext = createContext<WebDAVContextProps>({
 	connect: async () => {},
 	disconnect: () => {},
 	baseUrl: null,
+	loading: false, // 追加
 });
 
 export const WebDAVProvider: React.FC<{ children: ReactNode }> = ({
@@ -22,6 +24,7 @@ export const WebDAVProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
 	const [client, setClient] = useState<WebDAVClient | null>(null);
 	const [baseUrl, setBaseUrl] = useState<string | null>(null);
+	const [loading, setLoading] = useState<boolean>(false); // 追加
 
 	// 永続化: ローカルストレージからベースURLを読み込む
 	useEffect(() => {
@@ -35,12 +38,20 @@ export const WebDAVProvider: React.FC<{ children: ReactNode }> = ({
 	}, []);
 
 	const connect = async (url: string) => {
+		setLoading(true); // 追加
 		const newClient = createClient(url);
-		// 接続確認のため、ルートディレクトリの一覧を取得
-		await newClient.getDirectoryContents("/");
-		setClient(newClient);
-		setBaseUrl(url);
-		localStorage.setItem("webdav_url", url); // ローカルストレージに保存
+		try {
+			// 接続確認のため、ルートディレクトリの一覧を取得
+			await newClient.getDirectoryContents("/");
+			setClient(newClient);
+			setBaseUrl(url);
+			localStorage.setItem("webdav_url", url); // ローカルストレージに保存
+		} catch (error) {
+			console.error("接続エラー:", error);
+			throw error;
+		} finally {
+			setLoading(false); // 追加
+		}
 	};
 
 	const disconnect = () => {
@@ -50,7 +61,9 @@ export const WebDAVProvider: React.FC<{ children: ReactNode }> = ({
 	};
 
 	return (
-		<WebDAVContext.Provider value={{ client, connect, disconnect, baseUrl }}>
+		<WebDAVContext.Provider
+			value={{ client, connect, disconnect, baseUrl, loading }}
+		>
 			{children}
 		</WebDAVContext.Provider>
 	);
