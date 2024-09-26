@@ -24,7 +24,7 @@ export const WebDAVProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
 	const [client, setClient] = useState<WebDAVClient | null>(null);
 	const [baseUrl, setBaseUrl] = useState<string | null>(null);
-	const [loading, setLoading] = useState<boolean>(false); // 追加
+	const [loading, setLoading] = useState<boolean>(true); // 追加
 
 	// 永続化: ローカルストレージからベースURLを読み込む
 	useEffect(() => {

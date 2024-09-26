@@ -1,6 +1,6 @@
 // src/components/FileExplorer/FileExplorer.tsx
 
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import { WebDAVContext } from "../../contexts/WebDAVContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -37,10 +37,10 @@ import DownloadIcon from "@mui/icons-material/Download";
 import GridViewIcon from "@mui/icons-material/GridView";
 import TableViewIcon from "@mui/icons-material/TableView";
 import UploadModal from "../Upload/UploadModal";
-import NewFolderModal from "./NewFolderModal"; // 新規フォルダ作成モーダルのインポート
 import { getPathSegments } from "../../utils/helpers";
 import { FileStat } from "webdav";
 import Grid from "@mui/material/Grid2";
+import NewFolderModal from "./NewFolderModal";
 
 interface FileItem {
 	basename: string;
@@ -62,46 +62,40 @@ const FileExplorerScreen: React.FC = () => {
 	const currentPath =
 		decodeURI(location.pathname.replace("/explorer", "")) || "/";
 
+	const fetchFiles = useCallback(async () => {
+		if (!client || !baseUrl) return;
+		setLoadingFiles(true);
+		try {
+			const contents = (await client.getDirectoryContents(
+				currentPath
+			)) as FileStat[];
+			const mappedFiles: FileItem[] = contents.map((file: FileStat) => ({
+				basename: file.basename,
+				filename: file.filename,
+				type: file.type,
+				href: `${baseUrl}${file.filename}`,
+			}));
+			setFiles(mappedFiles);
+		} catch (err) {
+			console.error(err);
+			setError("ディレクトリの取得に失敗しました。");
+		} finally {
+			setLoadingFiles(false);
+		}
+	}, [client, baseUrl, currentPath]);
+
 	useEffect(() => {
 		if (loading) {
-			// 接続中は何もしない
 			return;
 		}
 
-		if (!client) {
+		if (!client || !baseUrl) {
 			navigate("/");
 			return;
 		}
-
-		const fetchFiles = async () => {
-			setLoadingFiles(true);
-			try {
-				const contents = (await client.getDirectoryContents(
-					currentPath
-				)) as FileStat[];
-				const mappedFiles: FileItem[] = contents.map((file: FileStat) => ({
-					basename: file.basename,
-					filename: file.filename,
-					type: file.type,
-					href: `${baseUrl}${file.filename}`, // ベースURLとファイルパスを組み合わせてhrefを生成
-				}));
-				setFiles(mappedFiles);
-				setLoadingFiles(false);
-			} catch (err) {
-				console.error(err);
-				setError("ディレクトリの取得に失敗しました。");
-				setLoadingFiles(false);
-			}
-		};
 
 		fetchFiles();
-	}, [client, baseUrl, currentPath, navigate, loading]);
-
-	useEffect(() => {
-		if (!loading && !client) {
-			navigate("/");
-		}
-	}, [client, loading, navigate]);
+	}, [client, baseUrl, currentPath, navigate]);
 
 	const handleNavigate = (path: string) => {
 		navigate(`/explorer${path}`);
@@ -120,25 +114,12 @@ const FileExplorerScreen: React.FC = () => {
 	const handleDelete = async (file: FileItem) => {
 		try {
 			if (file.type === "directory") {
-				await client?.deleteFile(file.filename, { recursive: true }); // ディレクトリの場合はrecursiveオプション
+				await client?.deleteFile(file.filename); // ディレクトリの場合はrecursiveオプション
 			} else {
 				await client?.deleteFile(file.filename); // ファイルの場合
 			}
 			// ファイルリストを更新
-			const contents = (await client?.getDirectoryContents(currentPath)) as
-				| FileStat[]
-				| undefined;
-			if (contents) {
-				const mappedFiles: FileItem[] = contents.map((file: FileStat) => ({
-					basename: file.basename,
-					filename: file.filename,
-					type: file.type,
-					href: `${baseUrl}${file.filename}`,
-				}));
-				setFiles(mappedFiles);
-			} else {
-				setFiles([]); // contents が undefined の場合
-			}
+			fetchFiles();
 		} catch (err) {
 			console.error(err);
 			setError("削除に失敗しました。");
@@ -160,29 +141,10 @@ const FileExplorerScreen: React.FC = () => {
 
 	const handleFolderCreated = () => {
 		// フォルダ作成後にファイルリストを更新
-		const fetchFiles = async () => {
-			setLoadingFiles(true);
-			try {
-				const contents = (await client?.getDirectoryContents(currentPath)) as
-					| FileStat[]
-					| undefined;
-				if (contents) {
-					const mappedFiles: FileItem[] = contents.map((file: FileStat) => ({
-						basename: file.basename,
-						filename: file.filename,
-						type: file.type,
-						href: `${baseUrl}${file.filename}`,
-					}));
-					setFiles(mappedFiles);
-				}
-				setLoadingFiles(false);
-			} catch (err) {
-				console.error(err);
-				setError("フォルダの取得に失敗しました。");
-				setLoadingFiles(false);
-			}
-		};
+		fetchFiles();
+	};
 
+	const handleUploadSuccess = () => {
 		fetchFiles();
 	};
 
@@ -246,7 +208,7 @@ const FileExplorerScreen: React.FC = () => {
 						variant="contained"
 						startIcon={<AddIcon />}
 						sx={{ ml: 2 }}
-						onClick={() => setNewFolderOpen(true)} // 新規フォルダ作成モーダルを開く
+						onClick={() => setNewFolderOpen(true)}
 					>
 						新規フォルダ作成
 					</Button>
@@ -263,7 +225,7 @@ const FileExplorerScreen: React.FC = () => {
 
 			{/* Main Content */}
 			<Box sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
-				{loading || loadingFiles ? (
+				{loadingFiles || loading ? (
 					<Box
 						sx={{
 							display: "flex",
@@ -331,7 +293,7 @@ const FileExplorerScreen: React.FC = () => {
 				) : (
 					<Grid container rowSpacing={6} columnSpacing={2}>
 						{files.map((file) => (
-							<Grid key={file.href} xs={6} sm={4} md={2}>
+							<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
 								<Box
 									sx={{
 										border: "1px solid #ccc",
@@ -393,6 +355,7 @@ const FileExplorerScreen: React.FC = () => {
 				open={uploadOpen}
 				handleClose={() => setUploadOpen(false)}
 				currentPath={currentPath}
+				onUploadSuccess={handleUploadSuccess}
 			/>
 
 			{/* New Folder Modal */}

@@ -11,36 +11,61 @@ import {
 	List,
 	ListItem,
 	ListItemText,
+	IconButton,
 	Box,
 	Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close"; // 削除ボタン用アイコン
 import { WebDAVContext } from "../../contexts/WebDAVContext";
 
 interface UploadModalProps {
 	open: boolean;
 	handleClose: () => void;
 	currentPath: string;
+	onUploadSuccess: () => void;
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({
 	open,
 	handleClose,
 	currentPath,
+	onUploadSuccess,
 }) => {
 	const { client } = useContext(WebDAVContext);
-	const [files, setFiles] = useState<FileList | null>(null);
+	const [files, setFiles] = useState<File[]>([]); // FileList から File[] に変更
 	const [uploading, setUploading] = useState<boolean>(false);
 	const [progress, setProgress] = useState<number>(0);
 	const [error, setError] = useState<string | null>(null);
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files) {
-			setFiles(e.target.files);
+			setFiles((prevFiles) => [
+				...prevFiles,
+				...Array.from(e.target.files || []),
+			]);
 		}
 	};
 
+	const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+		e.preventDefault();
+		if (e.dataTransfer.files) {
+			setFiles((prevFiles) => [
+				...prevFiles,
+				...Array.from(e.dataTransfer.files),
+			]);
+		}
+	};
+
+	const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+		e.preventDefault();
+	};
+
+	const handleRemoveFile = (index: number) => {
+		setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+	};
+
 	const handleUpload = async () => {
-		if (!files || !client) return;
+		if (files.length === 0 || !client) return;
 		setUploading(true);
 		setProgress(0);
 		try {
@@ -58,6 +83,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
 			}
 			setUploading(false);
 			handleClose();
+			onUploadSuccess();
+			setFiles([]); // アップロード後にファイルリストをクリア
 		} catch (err) {
 			setError("アップロードに失敗しました。");
 			setUploading(false);
@@ -78,6 +105,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
 						mb: 2,
 					}}
 					onClick={() => document.getElementById("file-input")?.click()}
+					onDrop={handleDrop} // ドロップ時のハンドラーを追加
+					onDragOver={handleDragOver} // ドラッグオーバー時のハンドラーを追加
 				>
 					<Typography>ここにファイルをドラッグ＆ドロップ</Typography>
 				</Box>
@@ -88,10 +117,21 @@ const UploadModal: React.FC<UploadModalProps> = ({
 					style={{ display: "none" }}
 					onChange={handleFileChange}
 				/>
-				{files && (
+				{files.length > 0 && (
 					<List>
-						{Array.from(files).map((file, index) => (
-							<ListItem key={index}>
+						{files.map((file, index) => (
+							<ListItem
+								key={index}
+								secondaryAction={
+									<IconButton
+										edge="end"
+										aria-label="remove"
+										onClick={() => handleRemoveFile(index)}
+									>
+										<CloseIcon />
+									</IconButton>
+								}
+							>
 								<ListItemText primary={file.name} />
 							</ListItem>
 						))}
@@ -120,7 +160,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
 					onClick={handleUpload}
 					variant="contained"
 					color="primary"
-					disabled={!files || uploading}
+					disabled={files.length === 0 || uploading}
 				>
 					アップロード
 				</Button>
