@@ -22,6 +22,15 @@ import { FileStat } from "webdav";
 import { getPathSegments } from "../../utils/helpers";
 import { Box, CircularProgress, Menu, MenuItem } from "@mui/material";
 
+const shuffleArray = <T,>(array: T[]): T[] => {
+	const shuffled = [...array];
+	for (let i = shuffled.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+	}
+	return shuffled;
+};
+
 const FileExplorerScreen: React.FC = () => {
 	// コンテキストから必要な値を取得
 	const { client, disconnect, baseUrl, loading } = useContext(WebDAVContext);
@@ -120,7 +129,7 @@ const FileExplorerScreen: React.FC = () => {
 	// ファイルリストをソートする関数
 	const sortFiles = (files: FileItem[]): FileItem[] => {
 		if (sortOrder === "random") {
-			return [...files].sort(() => Math.random() - 0.5);
+			return shuffleArray(files);
 		}
 
 		return [...files].sort((a, b) => {
