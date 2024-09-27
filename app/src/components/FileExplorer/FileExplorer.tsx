@@ -1,93 +1,48 @@
 // src/components/FileExplorer/FileExplorer.tsx
 
 import React, {
-	useCallback,
 	useContext,
 	useEffect,
-	useRef,
 	useState,
+	useCallback,
+	useRef,
 } from "react";
 import { WebDAVContext } from "../../contexts/WebDAVContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-	AppBar,
-	Toolbar,
-	Typography,
-	IconButton,
-	Box,
-	List,
-	ListItem,
-	ListItemIcon,
-	ListItemText,
-	Button,
-	CircularProgress,
-	Snackbar,
-	Alert,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	Paper,
-	ToggleButton,
-	ToggleButtonGroup,
-	Dialog,
-	DialogContent,
-	DialogTitle,
-	DialogActions,
-	DialogContentText,
-	Menu,
-	MenuItem,
-	Stack,
-	Icon,
-	FormControl,
-	InputLabel,
-	Select,
-} from "@mui/material";
-import FolderIcon from "@mui/icons-material/Folder";
-import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import UploadIcon from "@mui/icons-material/Upload";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import DownloadIcon from "@mui/icons-material/Download";
-import GridViewIcon from "@mui/icons-material/GridView";
-import TableViewIcon from "@mui/icons-material/TableView";
+import FileExplorerHeader from "./FileExplorerHeader";
+import FileExplorerToolbar from "./FileExplorerToolbar";
+import FileList from "./FileList";
+import PreviewDialog from "./PreviewDialog";
+import DeleteConfirmationDialog from "./DeleteConfirmationDialog";
+import ErrorSnackbar from "./ErrorSnackbar";
 import UploadModal from "../Upload/UploadModal";
-import { getPathSegments } from "../../utils/helpers";
-import { FileStat } from "webdav";
-import Grid from "@mui/material/Grid2";
 import NewFolderModal from "./NewFolderModal";
-import MoreVertIcon from "@mui/icons-material/MoreVert"; // 追加
-import Close from "@mui/icons-material/Close";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-
-interface FileItem {
-	basename: string;
-	filename: string;
-	type: string; // 'directory' or 'file'
-	href: string;
-	lastModified: string;
-}
-
-const isImage = (filename: string) => {
-	return /\.(jpeg|jpg|png|gif|bmp|webp)$/i.test(filename);
-};
-
-const isVideo = (filename: string) => {
-	return /\.(mp4|mov|avi|wmv|flv|mkv)$/i.test(filename);
-};
+import { FileItem } from "../../types/FileItem";
+import { FileStat } from "webdav";
+import { getPathSegments } from "../../utils/helpers";
+import { Box, CircularProgress, Menu, MenuItem } from "@mui/material";
 
 const FileExplorerScreen: React.FC = () => {
-	const { client, disconnect, baseUrl, loading } = useContext(WebDAVContext); // loading を取得
+	// コンテキストから必要な値を取得
+	const { client, disconnect, baseUrl, loading } = useContext(WebDAVContext);
+
+	// 状態管理
 	const [files, setFiles] = useState<FileItem[]>([]);
-	const [loadingFiles, setLoadingFiles] = useState<boolean>(false); // ファイル読み込みのローカルloading
+	const [loadingFiles, setLoadingFiles] = useState<boolean>(false);
 	const [error, setError] = useState<string | null>(null);
 	const [uploadOpen, setUploadOpen] = useState<boolean>(false);
-	const [newFolderOpen, setNewFolderOpen] = useState<boolean>(false); // 新規フォルダモーダルの状態
-	const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null); // 追加
-	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false); // 追加
+	const [newFolderOpen, setNewFolderOpen] = useState<boolean>(false);
+	const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
+	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
+	const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+	const [previewOpen, setPreviewOpen] = useState<boolean>(false);
+	const [sortField, setSortField] = useState<"name" | "lastModified">(
+		"lastModified"
+	);
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "random">("desc");
+	const [sortedFiles, setSortedFiles] = useState<FileItem[]>([]);
+	const [imageLoadError, setImageLoadError] = useState<boolean>(false);
+
 	const navigate = useNavigate();
 	const location = useLocation();
 	const currentPath =
@@ -96,15 +51,8 @@ const FileExplorerScreen: React.FC = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
-	const [previewOpen, setPreviewOpen] = useState<boolean>(false);
-	const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
-	const [sortField, setSortField] = useState<"name" | "lastModified">(
-		"lastModified"
-	);
-	const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "random">("desc");
-	const [sortedFiles, setSortedFiles] = useState<FileItem[]>([]);
-	const [imageLoadError, setImageLoadError] = useState<boolean>(false);
 
+	// ファイル一覧を取得する関数
 	const fetchFiles = useCallback(async () => {
 		if (!client || !baseUrl) return;
 		setLoadingFiles(true);
@@ -128,6 +76,7 @@ const FileExplorerScreen: React.FC = () => {
 		}
 	}, [client, baseUrl, currentPath]);
 
+	// コンポーネントのマウント時および依存関係が変化した際にファイル一覧を取得
 	useEffect(() => {
 		if (loading) {
 			return;
@@ -139,8 +88,9 @@ const FileExplorerScreen: React.FC = () => {
 		}
 
 		fetchFiles();
-	}, [client, baseUrl, currentPath, navigate]);
+	}, [client, baseUrl, currentPath, navigate, loading, fetchFiles]);
 
+	// スクロールイベントハンドラー
 	useEffect(() => {
 		const handleScroll = () => {
 			if (!containerRef.current) return;
@@ -167,6 +117,59 @@ const FileExplorerScreen: React.FC = () => {
 		};
 	}, [files.length]);
 
+	// ファイルリストをソートする関数
+	const sortFiles = (files: FileItem[]): FileItem[] => {
+		if (sortOrder === "random") {
+			return [...files].sort(() => Math.random() - 0.5);
+		}
+
+		return [...files].sort((a, b) => {
+			let compare = 0;
+			if (sortField === "name") {
+				compare = a.basename.localeCompare(b.basename);
+			} else if (sortField === "lastModified") {
+				const aDate = new Date(a.lastModified);
+				const bDate = new Date(b.lastModified);
+				compare = aDate.getTime() - bDate.getTime();
+			}
+
+			return sortOrder === "asc" ? compare : -compare;
+		});
+	};
+
+	// ソート後のファイルリストを設定
+	useEffect(() => {
+		setSortedFiles(sortFiles(files));
+	}, [files, sortField, sortOrder]);
+
+	// プレビュー対象ファイルが変更された際にエラーフラグをリセット
+	useEffect(() => {
+		setImageLoadError(false);
+	}, [previewFile]);
+
+	// プレビュー中のファイルのインデックスを取得
+	const getCurrentFileIndex = (): number => {
+		if (!previewFile) return -1;
+		return sortedFiles.findIndex((file) => file.href === previewFile.href);
+	};
+
+	// 次のファイルをプレビュー
+	const handleNextFile = () => {
+		const currentIndex = getCurrentFileIndex();
+		if (currentIndex !== -1 && currentIndex < sortedFiles.length - 1) {
+			setPreviewFile(sortedFiles[currentIndex + 1]);
+		}
+	};
+
+	// 前のファイルをプレビュー
+	const handlePreviousFile = () => {
+		const currentIndex = getCurrentFileIndex();
+		if (currentIndex > 0) {
+			setPreviewFile(sortedFiles[currentIndex - 1]);
+		}
+	};
+
+	// ナビゲーション関数
 	const handleNavigate = (path: string) => {
 		navigate(`/explorer${path}`);
 	};
@@ -181,9 +184,10 @@ const FileExplorerScreen: React.FC = () => {
 		}
 	};
 
+	// 削除操作
 	const handleDelete = async (file: FileItem) => {
-		setFileToDelete(file); // 追加
-		setConfirmDeleteOpen(true); // 追加
+		setFileToDelete(file);
+		setConfirmDeleteOpen(true);
 	};
 
 	const handleCancelDelete = () => {
@@ -195,9 +199,9 @@ const FileExplorerScreen: React.FC = () => {
 		if (!fileToDelete) return;
 		try {
 			if (fileToDelete.type === "directory") {
-				await client?.deleteFile(fileToDelete.filename); // recursive オプションの追加
+				await client?.deleteFile(fileToDelete.filename); // ディレクトリの削除
 			} else {
-				await client?.deleteFile(fileToDelete.filename);
+				await client?.deleteFile(fileToDelete.filename); // ファイルの削除
 			}
 			// ファイルリストを更新
 			fetchFiles();
@@ -211,36 +215,36 @@ const FileExplorerScreen: React.FC = () => {
 		}
 	};
 
+	// ダウンロード操作
 	const handleDownload = (file: FileItem) => {
 		window.open(file.href, "_blank");
 	};
 
+	// フォルダ作成後の処理
 	const handleFolderCreated = () => {
-		// フォルダ作成後にファイルリストを更新
 		fetchFiles();
 	};
 
+	// アップロード成功後の処理
 	const handleUploadSuccess = () => {
 		fetchFiles();
 	};
 
+	// メニュー操作
 	const handleMenuOpen = (
 		event: React.MouseEvent<HTMLElement>,
 		file: FileItem
 	) => {
-		// 追加
 		setAnchorEl(event.currentTarget);
 		setSelectedFile(file);
 	};
 
 	const handleMenuClose = () => {
-		// 追加
 		setAnchorEl(null);
 		setSelectedFile(null);
 	};
 
 	const handleDeleteAction = () => {
-		// 追加
 		if (selectedFile) {
 			handleDelete(selectedFile);
 		}
@@ -248,161 +252,39 @@ const FileExplorerScreen: React.FC = () => {
 	};
 
 	const handleDownloadAction = () => {
-		// 追加
 		if (selectedFile) {
 			handleDownload(selectedFile);
 		}
 		handleMenuClose();
 	};
 
+	// ファイルクリック時の処理
 	const handleFileClick = (file: FileItem) => {
 		setPreviewFile(file);
 		setPreviewOpen(true);
 	};
 
-	// ファイルリストをソートする関数を追加
-	const sortFiles = (files: FileItem[]): FileItem[] => {
-		if (sortOrder === "random") {
-			return [...files].sort(() => Math.random() - 0.5);
-		}
-
-		return [...files].sort((a, b) => {
-			let compare = 0;
-			if (sortField === "name") {
-				compare = a.basename.localeCompare(b.basename);
-			} else if (sortField === "lastModified") {
-				// FileItemにlastModifiedフィールドが必要
-				const aDate = new Date(a.lastModified);
-				const bDate = new Date(b.lastModified);
-				compare = aDate.getTime() - bDate.getTime();
-			}
-
-			return sortOrder === "asc" ? compare : -compare;
-		});
-	};
-
-	// 現在のプレビュー中のファイルのインデックスを取得する関数
-	const getCurrentFileIndex = (): number => {
-		if (!previewFile) return -1;
-		return sortedFiles.findIndex((file) => file.href === previewFile.href);
-	};
-
-	// 次のファイルをプレビューする関数
-	const handleNextFile = () => {
-		const currentIndex = getCurrentFileIndex();
-		if (currentIndex !== -1 && currentIndex < sortedFiles.length - 1) {
-			setPreviewFile(sortedFiles[currentIndex + 1]);
-		}
-	};
-
-	// 前のファイルをプレビューする関数
-	const handlePreviousFile = () => {
-		const currentIndex = getCurrentFileIndex();
-		if (currentIndex > 0) {
-			setPreviewFile(sortedFiles[currentIndex - 1]);
-		}
-	};
-
-	useEffect(() => {
-		setSortedFiles(sortFiles(files));
-	}, [files, client, baseUrl, sortField, sortOrder, currentPath]);
-
-	useEffect(() => {
-		setImageLoadError(false);
-	}, [previewFile]);
-
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
 			{/* Header */}
-			<AppBar position="static">
-				<Toolbar>
-					<Typography variant="h6" sx={{ flexGrow: 1 }}>
-						WebDAVクライアント
-					</Typography>
-					<Typography variant="body1" sx={{ mr: 2 }}>
-						{currentPath}
-					</Typography>
-					<Button
-						color="inherit"
-						onClick={() => {
-							disconnect();
-							navigate("/");
-						}}
-					>
-						切断
-					</Button>
-				</Toolbar>
-			</AppBar>
-
-			{/* Toolbar  */}
-			<Stack
-				direction={"row"}
-				sx={{
-					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					p: 2,
+			<FileExplorerHeader
+				currentPath={currentPath}
+				onDisconnect={() => {
+					disconnect();
+					navigate("/");
 				}}
-			>
-				<Box>
-					<IconButton
-						onClick={handleGoBack}
-						disabled={currentPath === "/"}
-						color="primary"
-					>
-						<ArrowBackIcon />
-					</IconButton>
-				</Box>
-				<Box>
-					<FormControl sx={{ minWidth: 150, ml: 2 }}>
-						<InputLabel id="sort-field-label">ソート基準</InputLabel>
-						<Select
-							labelId="sort-field-label"
-							value={sortField}
-							label="ソート基準"
-							onChange={(e) =>
-								setSortField(e.target.value as "name" | "lastModified")
-							}
-							disabled={sortOrder === "random"}
-						>
-							<MenuItem value="name">名前</MenuItem>
-							<MenuItem value="lastModified">最終更新</MenuItem>
-						</Select>
-					</FormControl>
+			/>
 
-					<FormControl sx={{ minWidth: 150, ml: 2 }}>
-						<InputLabel id="sort-order-label">ソート順</InputLabel>
-						<Select
-							labelId="sort-order-label"
-							value={sortOrder}
-							label="ソート順"
-							onChange={(e) =>
-								setSortOrder(e.target.value as "asc" | "desc" | "random")
-							}
-						>
-							<MenuItem value="asc">昇順</MenuItem>
-							<MenuItem value="desc">降順</MenuItem>
-							<MenuItem value="random">ランダム順</MenuItem>
-						</Select>
-					</FormControl>
-					<Button
-						variant="contained"
-						startIcon={<AddIcon />}
-						sx={{ ml: 2 }}
-						onClick={() => setNewFolderOpen(true)}
-					>
-						新規フォルダ作成
-					</Button>
-					<Button
-						variant="contained"
-						startIcon={<UploadIcon />}
-						sx={{ ml: 2 }}
-						onClick={() => setUploadOpen(true)}
-					>
-						アップロード
-					</Button>
-				</Box>
-			</Stack>
+			{/* Toolbar */}
+			<FileExplorerToolbar
+				sortField={sortField}
+				sortOrder={sortOrder}
+				onSortFieldChange={setSortField}
+				onSortOrderChange={setSortOrder}
+				onCreateFolder={() => setNewFolderOpen(true)}
+				onUpload={() => setUploadOpen(true)}
+				onGoBack={handleGoBack}
+			/>
 
 			{/* Main Content */}
 			<Box ref={containerRef} sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
@@ -418,63 +300,12 @@ const FileExplorerScreen: React.FC = () => {
 						<CircularProgress />
 					</Box>
 				) : (
-					<Grid container rowSpacing={6} columnSpacing={2}>
-						{sortedFiles.slice(0, itemsToShow).map((file) => (
-							<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
-								<Box
-									sx={{
-										border: "1px solid #ccc",
-										borderRadius: "8px",
-										p: 2,
-										textAlign: "center",
-										height: "100%",
-										display: "flex",
-										flexDirection: "column",
-										justifyContent: "space-between",
-										cursor: file.type === "directory" ? "pointer" : "default",
-										backgroundColor: "transparent",
-									}}
-									onClick={() => {
-										if (file.type === "directory") {
-											handleNavigate(file.filename);
-										} else {
-											handleFileClick(file);
-										}
-									}}
-								>
-									<Stack
-										direction="row"
-										justifyContent={"space-between"}
-										alignItems={"center"}
-									>
-										<Typography variant="subtitle1" noWrap>
-											{file.basename}
-										</Typography>
-										{/* メニューアイコン */}
-										<IconButton
-											aria-label="more"
-											onClick={(e) => {
-												e.stopPropagation(); // クリックイベントの伝播を防止
-												handleMenuOpen(e, file);
-											}}
-										>
-											<MoreVertIcon />
-										</IconButton>
-									</Stack>
-									{/* ボディ部分 */}
-									<Box>
-										<Icon fontSize="large">
-											{file.type === "directory" ? (
-												<FolderIcon fontSize="large" />
-											) : (
-												<InsertDriveFileIcon fontSize="large" />
-											)}
-										</Icon>
-									</Box>
-								</Box>
-							</Grid>
-						))}
-					</Grid>
+					<FileList
+						files={sortedFiles.slice(0, itemsToShow)}
+						onFileClick={handleFileClick}
+						onNavigate={handleNavigate}
+						onMenuOpen={handleMenuOpen}
+					/>
 				)}
 			</Box>
 
@@ -491,135 +322,29 @@ const FileExplorerScreen: React.FC = () => {
 				open={newFolderOpen}
 				handleClose={() => setNewFolderOpen(false)}
 				currentPath={currentPath}
-				onFolderCreated={handleFolderCreated} // フォルダ作成後に呼び出す
+				onFolderCreated={handleFolderCreated}
 			/>
 
-			{/* 確認ダイアログの追加 */}
-			<Dialog open={confirmDeleteOpen} onClose={handleCancelDelete}>
-				<DialogTitle>ファイルの削除確認</DialogTitle>
-				<DialogContent>
-					<DialogContentText>
-						{fileToDelete
-							? `${fileToDelete.basename} を削除してもよろしいですか？`
-							: ""}
-					</DialogContentText>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={handleCancelDelete} color="primary">
-						キャンセル
-					</Button>
-					<Button
-						onClick={handleConfirmDelete}
-						color="error"
-						variant="contained"
-					>
-						削除
-					</Button>
-				</DialogActions>
-			</Dialog>
+			{/* Delete Confirmation Dialog */}
+			<DeleteConfirmationDialog
+				open={confirmDeleteOpen}
+				file={fileToDelete}
+				onConfirm={handleConfirmDelete}
+				onCancel={handleCancelDelete}
+			/>
 
-			<Dialog
+			{/* Preview Dialog */}
+			<PreviewDialog
 				open={previewOpen}
+				file={previewFile}
 				onClose={() => setPreviewOpen(false)}
-				fullWidth
-				maxWidth="md"
-			>
-				<DialogTitle>
-					{previewFile?.basename}
-					<IconButton
-						aria-label="close"
-						onClick={() => setPreviewOpen(false)}
-						sx={{
-							position: "absolute",
-							right: 8,
-							top: 8,
-						}}
-					>
-						<Close />
-					</IconButton>
-				</DialogTitle>
-				<DialogContent dividers>
-					{previewFile && isImage(previewFile.basename) && (
-						<Box
-							component="img"
-							src={previewFile.href}
-							alt={previewFile.basename}
-							sx={{
-								width: "100%",
-								height: "auto",
-								maxHeight: "80vh", // 最大高さを設定
-								objectFit: "contain", // アスペクト比を維持しつつコンテナに収める
-							}}
-						/>
-					)}
-					{previewFile && isVideo(previewFile.basename) && (
-						<video controls style={{ width: "100%" }}>
-							<source
-								src={previewFile.href}
-								type={`video/${previewFile.basename.split(".").pop()}`}
-							/>
-							Your browser does not support the video tag.
-						</video>
-					)}
-					{previewFile &&
-						!isImage(previewFile.basename) &&
-						!isVideo(previewFile.basename) && (
-							<Box
-								sx={{
-									display: "flex",
-									flexDirection: "column",
-									alignItems: "center",
-									justifyContent: "center",
-									height: "300px",
-								}}
-							>
-								{!imageLoadError ? (
-									<Box
-										component="img"
-										src={previewFile.href}
-										alt={previewFile.basename}
-										sx={{ width: "100%", height: "auto" }}
-										onError={() => setImageLoadError(true)}
-									/>
-								) : (
-									<>
-										<Typography variant="h6" gutterBottom>
-											プレビューできません
-										</Typography>
-										<Button
-											variant="contained"
-											color="primary"
-											onClick={() => window.open(previewFile.href, "_blank")}
-										>
-											別タブで開く
-										</Button>
-									</>
-								)}
-							</Box>
-						)}
-				</DialogContent>
-				{/* ナビゲーションボタンを追加 */}
-				<DialogActions>
-					<Button
-						onClick={handlePreviousFile}
-						disabled={getCurrentFileIndex() <= 0}
-						startIcon={<ArrowBackIcon />}
-					>
-						前へ
-					</Button>
-					<Button
-						onClick={handleNextFile}
-						disabled={
-							getCurrentFileIndex() === sortedFiles.length - 1 ||
-							getCurrentFileIndex() === -1
-						}
-						endIcon={<ArrowForwardIcon />}
-					>
-						次へ
-					</Button>
-				</DialogActions>
-			</Dialog>
+				onPrevious={handlePreviousFile}
+				onNext={handleNextFile}
+				imageLoadError={imageLoadError}
+				setImageLoadError={setImageLoadError}
+			/>
 
+			{/* Menu Component */}
 			<Menu
 				anchorEl={anchorEl}
 				open={Boolean(anchorEl)}
@@ -630,21 +355,13 @@ const FileExplorerScreen: React.FC = () => {
 			</Menu>
 
 			{/* Error Snackbar */}
-			<Snackbar
+			<ErrorSnackbar
 				open={!!error}
-				autoHideDuration={6000}
+				message={error || ""}
 				onClose={() => setError(null)}
-				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-			>
-				<Alert
-					onClose={() => setError(null)}
-					severity="error"
-					sx={{ width: "100%" }}
-				>
-					{error}
-				</Alert>
-			</Snackbar>
+			/>
 		</Box>
 	);
 };
+
 export default FileExplorerScreen;
