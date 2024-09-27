@@ -41,6 +41,9 @@ import {
 	MenuItem,
 	Stack,
 	Icon,
+	FormControl,
+	InputLabel,
+	Select,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
@@ -64,6 +67,7 @@ interface FileItem {
 	filename: string;
 	type: string; // 'directory' or 'file'
 	href: string;
+	lastModified: string;
 }
 
 const isImage = (filename: string) => {
@@ -81,7 +85,6 @@ const FileExplorerScreen: React.FC = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [uploadOpen, setUploadOpen] = useState<boolean>(false);
 	const [newFolderOpen, setNewFolderOpen] = useState<boolean>(false); // 新規フォルダモーダルの状態
-	const [viewMode, setViewMode] = useState<"table" | "grid">("grid"); // 表示モードの状態
 	const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null); // 追加
 	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false); // 追加
 	const navigate = useNavigate();
@@ -94,6 +97,11 @@ const FileExplorerScreen: React.FC = () => {
 	const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
 	const [previewOpen, setPreviewOpen] = useState<boolean>(false);
 	const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+	const [sortField, setSortField] = useState<"name" | "lastModified">(
+		"lastModified"
+	);
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "random">("desc");
+	const [sortedFiles, setSortedFiles] = useState<FileItem[]>([]);
 
 	const fetchFiles = useCallback(async () => {
 		if (!client || !baseUrl) return;
@@ -107,6 +115,7 @@ const FileExplorerScreen: React.FC = () => {
 				filename: file.filename,
 				type: file.type,
 				href: `${baseUrl}${file.filename}`,
+				lastModified: file.lastmod,
 			}));
 			setFiles(mappedFiles);
 		} catch (err) {
@@ -204,15 +213,6 @@ const FileExplorerScreen: React.FC = () => {
 		window.open(file.href, "_blank");
 	};
 
-	const handleViewModeChange = (
-		event: React.MouseEvent<HTMLElement>,
-		newViewMode: "table" | "grid" | null
-	) => {
-		if (newViewMode !== null) {
-			setViewMode(newViewMode);
-		}
-	};
-
 	const handleFolderCreated = () => {
 		// フォルダ作成後にファイルリストを更新
 		fetchFiles();
@@ -254,13 +254,34 @@ const FileExplorerScreen: React.FC = () => {
 	};
 
 	const handleFileClick = (file: FileItem) => {
-		if (isImage(file.basename) || isVideo(file.basename)) {
-			setPreviewFile(file);
-			setPreviewOpen(true);
-		} else {
-			window.open(file.href, "_blank");
-		}
+		setPreviewFile(file);
+		setPreviewOpen(true);
 	};
+
+	// ファイルリストをソートする関数を追加
+	const sortFiles = (files: FileItem[]): FileItem[] => {
+		if (sortOrder === "random") {
+			return [...files].sort(() => Math.random() - 0.5);
+		}
+
+		return [...files].sort((a, b) => {
+			let compare = 0;
+			if (sortField === "name") {
+				compare = a.basename.localeCompare(b.basename);
+			} else if (sortField === "lastModified") {
+				// FileItemにlastModifiedフィールドが必要
+				const aDate = new Date(a.lastModified);
+				const bDate = new Date(b.lastModified);
+				compare = aDate.getTime() - bDate.getTime();
+			}
+
+			return sortOrder === "asc" ? compare : -compare;
+		});
+	};
+
+	useEffect(() => {
+		setSortedFiles(sortFiles(files));
+	}, [sortField, sortOrder]);
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -285,7 +306,7 @@ const FileExplorerScreen: React.FC = () => {
 				</Toolbar>
 			</AppBar>
 
-			{/* Toolbar with View Mode Toggle */}
+			{/* Toolbar  */}
 			<Box
 				sx={{
 					display: "flex",
@@ -304,20 +325,37 @@ const FileExplorerScreen: React.FC = () => {
 					</IconButton>
 				</Box>
 				<Box>
-					<ToggleButtonGroup
-						value={viewMode}
-						exclusive
-						onChange={handleViewModeChange}
-						aria-label="view mode"
-						size="small"
-					>
-						<ToggleButton value="table" aria-label="table view">
-							<TableViewIcon />
-						</ToggleButton>
-						<ToggleButton value="grid" aria-label="grid view">
-							<GridViewIcon />
-						</ToggleButton>
-					</ToggleButtonGroup>
+					<FormControl sx={{ minWidth: 150, ml: 2 }}>
+						<InputLabel id="sort-field-label">ソート基準</InputLabel>
+						<Select
+							labelId="sort-field-label"
+							value={sortField}
+							label="ソート基準"
+							onChange={(e) =>
+								setSortField(e.target.value as "name" | "lastModified")
+							}
+							disabled={sortOrder === "random"}
+						>
+							<MenuItem value="name">名前</MenuItem>
+							<MenuItem value="lastModified">最終更新</MenuItem>
+						</Select>
+					</FormControl>
+
+					<FormControl sx={{ minWidth: 150, ml: 2 }}>
+						<InputLabel id="sort-order-label">ソート順</InputLabel>
+						<Select
+							labelId="sort-order-label"
+							value={sortOrder}
+							label="ソート順"
+							onChange={(e) =>
+								setSortOrder(e.target.value as "asc" | "desc" | "random")
+							}
+						>
+							<MenuItem value="asc">昇順</MenuItem>
+							<MenuItem value="desc">降順</MenuItem>
+							<MenuItem value="random">ランダム順</MenuItem>
+						</Select>
+					</FormControl>
 					<Button
 						variant="contained"
 						startIcon={<AddIcon />}
@@ -350,66 +388,9 @@ const FileExplorerScreen: React.FC = () => {
 					>
 						<CircularProgress />
 					</Box>
-				) : viewMode === "table" ? (
-					<TableContainer component={Paper}>
-						<Table>
-							<TableHead>
-								<TableRow>
-									<TableCell>名前</TableCell>
-									<TableCell align="right">操作</TableCell>
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{files.slice(0, itemsToShow).map((file) => (
-									<TableRow key={file.href}>
-										<TableCell colSpan={2} sx={{ padding: 0 }}>
-											{" "}
-											{/* 変更: セルを結合 */}
-											<Box
-												sx={{
-													display: "flex",
-													justifyContent: "space-between",
-													alignItems: "center",
-													border: "1px solid #ccc",
-													borderRadius: "8px",
-													p: 2,
-													m: 1,
-													cursor:
-														file.type === "directory" ? "pointer" : "default",
-													backgroundColor:
-														file.type === "directory"
-															? "#f5f5f5"
-															: "transparent",
-												}}
-												onClick={() => {
-													if (file.type === "directory") {
-														handleNavigate(file.filename);
-													}
-												}}
-											>
-												{/* ヘッダー部分 */}
-												<Typography variant="subtitle1">
-													{file.basename}
-												</Typography>
-												<IconButton
-													aria-label="more"
-													onClick={(e) => {
-														e.stopPropagation(); // クリックイベントの伝播を防止
-														handleMenuOpen(e, file);
-													}}
-												>
-													<MoreVertIcon />
-												</IconButton>
-											</Box>
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</TableContainer>
 				) : (
 					<Grid container rowSpacing={6} columnSpacing={2}>
-						{files.slice(0, itemsToShow).map((file) => (
+						{sortedFiles.slice(0, itemsToShow).map((file) => (
 							<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
 								<Box
 									sx={{
@@ -552,6 +533,30 @@ const FileExplorerScreen: React.FC = () => {
 							Your browser does not support the video tag.
 						</video>
 					)}
+					{previewFile &&
+						!isImage(previewFile.basename) &&
+						!isVideo(previewFile.basename) && (
+							<Box
+								sx={{
+									display: "flex",
+									flexDirection: "column",
+									alignItems: "center",
+									justifyContent: "center",
+									height: "300px",
+								}}
+							>
+								<Typography variant="h6" gutterBottom>
+									プレビューできません
+								</Typography>
+								<Button
+									variant="contained"
+									color="primary"
+									onClick={() => window.open(previewFile.href, "_blank")}
+								>
+									別タブで開く
+								</Button>
+							</Box>
+						)}
 				</DialogContent>
 			</Dialog>
 
