@@ -57,6 +57,7 @@ import { FileStat } from "webdav";
 import Grid from "@mui/material/Grid2";
 import NewFolderModal from "./NewFolderModal";
 import MoreVertIcon from "@mui/icons-material/MoreVert"; // 追加
+import Close from "@mui/icons-material/Close";
 
 interface FileItem {
 	basename: string;
@@ -64,6 +65,14 @@ interface FileItem {
 	type: string; // 'directory' or 'file'
 	href: string;
 }
+
+const isImage = (filename: string) => {
+	return /\.(jpeg|jpg|png|gif|bmp|webp)$/i.test(filename);
+};
+
+const isVideo = (filename: string) => {
+	return /\.(mp4|mov|avi|wmv|flv|mkv)$/i.test(filename);
+};
 
 const FileExplorerScreen: React.FC = () => {
 	const { client, disconnect, baseUrl, loading } = useContext(WebDAVContext); // loading を取得
@@ -81,8 +90,10 @@ const FileExplorerScreen: React.FC = () => {
 		decodeURI(location.pathname.replace("/explorer", "")) || "/";
 	const [itemsToShow, setItemsToShow] = useState<number>(50);
 	const containerRef = useRef<HTMLDivElement | null>(null);
-	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null); // 追加
-	const [selectedFile, setSelectedFile] = useState<FileItem | null>(null); // 追加
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+	const [previewOpen, setPreviewOpen] = useState<boolean>(false);
+	const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
 	const fetchFiles = useCallback(async () => {
 		if (!client || !baseUrl) return;
@@ -240,6 +251,15 @@ const FileExplorerScreen: React.FC = () => {
 			handleDownload(selectedFile);
 		}
 		handleMenuClose();
+	};
+
+	const handleFileClick = (file: FileItem) => {
+		if (isImage(file.basename) || isVideo(file.basename)) {
+			setPreviewFile(file);
+			setPreviewOpen(true);
+		} else {
+			window.open(file.href, "_blank");
+		}
 	};
 
 	return (
@@ -407,6 +427,8 @@ const FileExplorerScreen: React.FC = () => {
 									onClick={() => {
 										if (file.type === "directory") {
 											handleNavigate(file.filename);
+										} else {
+											handleFileClick(file);
 										}
 									}}
 								>
@@ -435,7 +457,7 @@ const FileExplorerScreen: React.FC = () => {
 											fontSize="large"
 											onClick={(e) => {
 												e.stopPropagation(); // クリックイベントの伝播を防止
-												// ここで何かアクションが必要なら追加
+												handleFileClick(file);
 											}}
 										>
 											{file.type === "directory" ? (
@@ -490,6 +512,47 @@ const FileExplorerScreen: React.FC = () => {
 						削除
 					</Button>
 				</DialogActions>
+			</Dialog>
+
+			<Dialog
+				open={previewOpen}
+				onClose={() => setPreviewOpen(false)}
+				fullWidth
+				maxWidth="md"
+			>
+				<DialogTitle>
+					{previewFile?.basename}
+					<IconButton
+						aria-label="close"
+						onClick={() => setPreviewOpen(false)}
+						sx={{
+							position: "absolute",
+							right: 8,
+							top: 8,
+						}}
+					>
+						<Close />
+					</IconButton>
+				</DialogTitle>
+				<DialogContent dividers>
+					{previewFile && isImage(previewFile.basename) && (
+						<Box
+							component="img"
+							src={previewFile.href}
+							alt={previewFile.basename}
+							sx={{ width: "100%", height: "auto" }}
+						/>
+					)}
+					{previewFile && isVideo(previewFile.basename) && (
+						<video controls style={{ width: "100%" }}>
+							<source
+								src={previewFile.href}
+								type={`video/${previewFile.basename.split(".").pop()}`}
+							/>
+							Your browser does not support the video tag.
+						</video>
+					)}
+				</DialogContent>
 			</Dialog>
 
 			<Menu
