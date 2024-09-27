@@ -1,6 +1,12 @@
 // src/components/FileExplorer/FileExplorer.tsx
 
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, {
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { WebDAVContext } from "../../contexts/WebDAVContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -31,6 +37,10 @@ import {
 	DialogTitle,
 	DialogActions,
 	DialogContentText,
+	Menu,
+	MenuItem,
+	Stack,
+	Icon,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
@@ -46,6 +56,7 @@ import { getPathSegments } from "../../utils/helpers";
 import { FileStat } from "webdav";
 import Grid from "@mui/material/Grid2";
 import NewFolderModal from "./NewFolderModal";
+import MoreVertIcon from "@mui/icons-material/MoreVert"; // 追加
 
 interface FileItem {
 	basename: string;
@@ -68,6 +79,10 @@ const FileExplorerScreen: React.FC = () => {
 	const location = useLocation();
 	const currentPath =
 		decodeURI(location.pathname.replace("/explorer", "")) || "/";
+	const [itemsToShow, setItemsToShow] = useState<number>(50);
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null); // 追加
+	const [selectedFile, setSelectedFile] = useState<FileItem | null>(null); // 追加
 
 	const fetchFiles = useCallback(async () => {
 		if (!client || !baseUrl) return;
@@ -103,6 +118,32 @@ const FileExplorerScreen: React.FC = () => {
 
 		fetchFiles();
 	}, [client, baseUrl, currentPath, navigate]);
+
+	useEffect(() => {
+		const handleScroll = () => {
+			if (!containerRef.current) return;
+
+			const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+			if (scrollTop + clientHeight >= scrollHeight - 100) {
+				// 最下部から100px以内
+				setItemsToShow((prev) => {
+					const newItemsToShow = prev + 50;
+					return newItemsToShow > files.length ? files.length : newItemsToShow;
+				});
+			}
+		};
+
+		const container = containerRef.current;
+		if (container) {
+			container.addEventListener("scroll", handleScroll);
+		}
+
+		return () => {
+			if (container) {
+				container.removeEventListener("scroll", handleScroll);
+			}
+		};
+	}, [files.length]);
 
 	const handleNavigate = (path: string) => {
 		navigate(`/explorer${path}`);
@@ -168,6 +209,37 @@ const FileExplorerScreen: React.FC = () => {
 
 	const handleUploadSuccess = () => {
 		fetchFiles();
+	};
+
+	const handleMenuOpen = (
+		event: React.MouseEvent<HTMLElement>,
+		file: FileItem
+	) => {
+		// 追加
+		setAnchorEl(event.currentTarget);
+		setSelectedFile(file);
+	};
+
+	const handleMenuClose = () => {
+		// 追加
+		setAnchorEl(null);
+		setSelectedFile(null);
+	};
+
+	const handleDeleteAction = () => {
+		// 追加
+		if (selectedFile) {
+			handleDelete(selectedFile);
+		}
+		handleMenuClose();
+	};
+
+	const handleDownloadAction = () => {
+		// 追加
+		if (selectedFile) {
+			handleDownload(selectedFile);
+		}
+		handleMenuClose();
 	};
 
 	return (
@@ -246,7 +318,7 @@ const FileExplorerScreen: React.FC = () => {
 			</Box>
 
 			{/* Main Content */}
-			<Box sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
+			<Box ref={containerRef} sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
 				{loadingFiles || loading ? (
 					<Box
 						sx={{
@@ -268,44 +340,47 @@ const FileExplorerScreen: React.FC = () => {
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{files.map((file) => (
+								{files.slice(0, itemsToShow).map((file) => (
 									<TableRow key={file.href}>
-										<TableCell component="th" scope="row">
-											<Button
-												startIcon={
-													file.type === "directory" ? (
-														<FolderIcon />
-													) : (
-														<InsertDriveFileIcon />
-													)
-												}
-												onClick={() =>
-													file.type === "directory"
-														? handleNavigate(file.filename)
-														: null
-												}
-												sx={{ textTransform: "none" }}
+										<TableCell colSpan={2} sx={{ padding: 0 }}>
+											{" "}
+											{/* 変更: セルを結合 */}
+											<Box
+												sx={{
+													display: "flex",
+													justifyContent: "space-between",
+													alignItems: "center",
+													border: "1px solid #ccc",
+													borderRadius: "8px",
+													p: 2,
+													m: 1,
+													cursor:
+														file.type === "directory" ? "pointer" : "default",
+													backgroundColor:
+														file.type === "directory"
+															? "#f5f5f5"
+															: "transparent",
+												}}
+												onClick={() => {
+													if (file.type === "directory") {
+														handleNavigate(file.filename);
+													}
+												}}
 											>
-												{file.basename}
-											</Button>
-										</TableCell>
-										<TableCell align="right">
-											{file.type !== "directory" && (
+												{/* ヘッダー部分 */}
+												<Typography variant="subtitle1">
+													{file.basename}
+												</Typography>
 												<IconButton
-													aria-label="download"
-													onClick={() => handleDownload(file)}
-													size="small"
+													aria-label="more"
+													onClick={(e) => {
+														e.stopPropagation(); // クリックイベントの伝播を防止
+														handleMenuOpen(e, file);
+													}}
 												>
-													<DownloadIcon />
+													<MoreVertIcon />
 												</IconButton>
-											)}
-											<IconButton
-												aria-label="delete"
-												onClick={() => handleDelete(file)}
-												size="small"
-											>
-												<DeleteIcon />
-											</IconButton>
+											</Box>
 										</TableCell>
 									</TableRow>
 								))}
@@ -314,7 +389,7 @@ const FileExplorerScreen: React.FC = () => {
 					</TableContainer>
 				) : (
 					<Grid container rowSpacing={6} columnSpacing={2}>
-						{files.slice(0, 99).map((file) => (
+						{files.slice(0, itemsToShow).map((file) => (
 							<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
 								<Box
 									sx={{
@@ -326,44 +401,49 @@ const FileExplorerScreen: React.FC = () => {
 										display: "flex",
 										flexDirection: "column",
 										justifyContent: "space-between",
+										cursor: file.type === "directory" ? "pointer" : "default",
+										backgroundColor: "transparent",
+									}}
+									onClick={() => {
+										if (file.type === "directory") {
+											handleNavigate(file.filename);
+										}
 									}}
 								>
-									<Box>
+									<Stack
+										direction="row"
+										justifyContent={"space-between"}
+										alignItems={"center"}
+									>
+										<Typography variant="subtitle1" noWrap>
+											{file.basename}
+										</Typography>
+										{/* メニューアイコン */}
 										<IconButton
-											size="large"
-											onClick={() =>
-												file.type === "directory"
-													? handleNavigate(file.filename)
-													: null
-											}
+											aria-label="more"
+											onClick={(e) => {
+												e.stopPropagation(); // クリックイベントの伝播を防止
+												handleMenuOpen(e, file);
+											}}
+										>
+											<MoreVertIcon />
+										</IconButton>
+									</Stack>
+									{/* ボディ部分 */}
+									<Box>
+										<Icon
+											fontSize="large"
+											onClick={(e) => {
+												e.stopPropagation(); // クリックイベントの伝播を防止
+												// ここで何かアクションが必要なら追加
+											}}
 										>
 											{file.type === "directory" ? (
 												<FolderIcon fontSize="large" />
 											) : (
 												<InsertDriveFileIcon fontSize="large" />
 											)}
-										</IconButton>
-										<Typography variant="body1" noWrap>
-											{file.basename}
-										</Typography>
-									</Box>
-									<Box>
-										{file.type !== "directory" && (
-											<IconButton
-												aria-label="download"
-												onClick={() => handleDownload(file)}
-												size="small"
-											>
-												<DownloadIcon />
-											</IconButton>
-										)}
-										<IconButton
-											aria-label="delete"
-											onClick={() => handleDelete(file)}
-											size="small"
-										>
-											<DeleteIcon />
-										</IconButton>
+										</Icon>
 									</Box>
 								</Box>
 							</Grid>
@@ -411,6 +491,15 @@ const FileExplorerScreen: React.FC = () => {
 					</Button>
 				</DialogActions>
 			</Dialog>
+
+			<Menu
+				anchorEl={anchorEl}
+				open={Boolean(anchorEl)}
+				onClose={handleMenuClose}
+			>
+				<MenuItem onClick={handleDownloadAction}>ダウンロード</MenuItem>
+				<MenuItem onClick={handleDeleteAction}>削除</MenuItem>
+			</Menu>
 
 			{/* Error Snackbar */}
 			<Snackbar
