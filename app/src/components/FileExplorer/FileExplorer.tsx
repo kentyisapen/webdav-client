@@ -61,6 +61,7 @@ import Grid from "@mui/material/Grid2";
 import NewFolderModal from "./NewFolderModal";
 import MoreVertIcon from "@mui/icons-material/MoreVert"; // 追加
 import Close from "@mui/icons-material/Close";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 interface FileItem {
 	basename: string;
@@ -102,6 +103,7 @@ const FileExplorerScreen: React.FC = () => {
 	);
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "random">("desc");
 	const [sortedFiles, setSortedFiles] = useState<FileItem[]>([]);
+	const [imageLoadError, setImageLoadError] = useState<boolean>(false);
 
 	const fetchFiles = useCallback(async () => {
 		if (!client || !baseUrl) return;
@@ -279,9 +281,35 @@ const FileExplorerScreen: React.FC = () => {
 		});
 	};
 
+	// 現在のプレビュー中のファイルのインデックスを取得する関数
+	const getCurrentFileIndex = (): number => {
+		if (!previewFile) return -1;
+		return sortedFiles.findIndex((file) => file.href === previewFile.href);
+	};
+
+	// 次のファイルをプレビューする関数
+	const handleNextFile = () => {
+		const currentIndex = getCurrentFileIndex();
+		if (currentIndex !== -1 && currentIndex < sortedFiles.length - 1) {
+			setPreviewFile(sortedFiles[currentIndex + 1]);
+		}
+	};
+
+	// 前のファイルをプレビューする関数
+	const handlePreviousFile = () => {
+		const currentIndex = getCurrentFileIndex();
+		if (currentIndex > 0) {
+			setPreviewFile(sortedFiles[currentIndex - 1]);
+		}
+	};
+
 	useEffect(() => {
 		setSortedFiles(sortFiles(files));
-	}, [sortField, sortOrder]);
+	}, [files, client, baseUrl, sortField, sortOrder, currentPath]);
+
+	useEffect(() => {
+		setImageLoadError(false);
+	}, [previewFile]);
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -307,7 +335,8 @@ const FileExplorerScreen: React.FC = () => {
 			</AppBar>
 
 			{/* Toolbar  */}
-			<Box
+			<Stack
+				direction={"row"}
 				sx={{
 					display: "flex",
 					justifyContent: "space-between",
@@ -373,7 +402,7 @@ const FileExplorerScreen: React.FC = () => {
 						アップロード
 					</Button>
 				</Box>
-			</Box>
+			</Stack>
 
 			{/* Main Content */}
 			<Box ref={containerRef} sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
@@ -434,13 +463,7 @@ const FileExplorerScreen: React.FC = () => {
 									</Stack>
 									{/* ボディ部分 */}
 									<Box>
-										<Icon
-											fontSize="large"
-											onClick={(e) => {
-												e.stopPropagation(); // クリックイベントの伝播を防止
-												handleFileClick(file);
-											}}
-										>
+										<Icon fontSize="large">
 											{file.type === "directory" ? (
 												<FolderIcon fontSize="large" />
 											) : (
@@ -521,7 +544,12 @@ const FileExplorerScreen: React.FC = () => {
 							component="img"
 							src={previewFile.href}
 							alt={previewFile.basename}
-							sx={{ width: "100%", height: "auto" }}
+							sx={{
+								width: "100%",
+								height: "auto",
+								maxHeight: "80vh", // 最大高さを設定
+								objectFit: "contain", // アスペクト比を維持しつつコンテナに収める
+							}}
 						/>
 					)}
 					{previewFile && isVideo(previewFile.basename) && (
@@ -545,19 +573,51 @@ const FileExplorerScreen: React.FC = () => {
 									height: "300px",
 								}}
 							>
-								<Typography variant="h6" gutterBottom>
-									プレビューできません
-								</Typography>
-								<Button
-									variant="contained"
-									color="primary"
-									onClick={() => window.open(previewFile.href, "_blank")}
-								>
-									別タブで開く
-								</Button>
+								{!imageLoadError ? (
+									<Box
+										component="img"
+										src={previewFile.href}
+										alt={previewFile.basename}
+										sx={{ width: "100%", height: "auto" }}
+										onError={() => setImageLoadError(true)}
+									/>
+								) : (
+									<>
+										<Typography variant="h6" gutterBottom>
+											プレビューできません
+										</Typography>
+										<Button
+											variant="contained"
+											color="primary"
+											onClick={() => window.open(previewFile.href, "_blank")}
+										>
+											別タブで開く
+										</Button>
+									</>
+								)}
 							</Box>
 						)}
 				</DialogContent>
+				{/* ナビゲーションボタンを追加 */}
+				<DialogActions>
+					<Button
+						onClick={handlePreviousFile}
+						disabled={getCurrentFileIndex() <= 0}
+						startIcon={<ArrowBackIcon />}
+					>
+						前へ
+					</Button>
+					<Button
+						onClick={handleNextFile}
+						disabled={
+							getCurrentFileIndex() === sortedFiles.length - 1 ||
+							getCurrentFileIndex() === -1
+						}
+						endIcon={<ArrowForwardIcon />}
+					>
+						次へ
+					</Button>
+				</DialogActions>
 			</Dialog>
 
 			<Menu
