@@ -279,6 +279,7 @@ const FileExplorerScreen: React.FC = () => {
 			<FileExplorerToolbar
 				sortField={sortField}
 				sortOrder={sortOrder}
+				currentPath={currentPath}
 				onSortFieldChange={setSortField}
 				onSortOrderChange={setSortOrder}
 				onCreateFolder={() => setNewFolderOpen(true)}
@@ -337,11 +338,13 @@ const FileExplorerScreen: React.FC = () => {
 			<PreviewDialog
 				open={previewOpen}
 				file={previewFile}
+				sortedFiles={sortedFiles}
 				onClose={() => setPreviewOpen(false)}
 				onPrevious={handlePreviousFile}
 				onNext={handleNextFile}
 				imageLoadError={imageLoadError}
 				setImageLoadError={setImageLoadError}
+				getCurrentFileIndex={getCurrentFileIndex}
 			/>
 
 			{/* Menu Component */}

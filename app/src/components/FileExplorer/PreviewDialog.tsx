@@ -19,21 +19,25 @@ import { FileItem } from "../../types/FileItem";
 interface PreviewDialogProps {
 	open: boolean;
 	file: FileItem | null;
+	sortedFiles: FileItem[];
 	onClose: () => void;
 	onPrevious: () => void;
 	onNext: () => void;
 	imageLoadError: boolean;
 	setImageLoadError: (value: boolean) => void;
+	getCurrentFileIndex: () => number;
 }
 
 const PreviewDialog: React.FC<PreviewDialogProps> = ({
 	open,
 	file,
+	sortedFiles,
 	onClose,
 	onPrevious,
 	onNext,
 	imageLoadError,
 	setImageLoadError,
+	getCurrentFileIndex,
 }) => {
 	const isImage = (filename: string) =>
 		/\.(jpeg|jpg|png|gif|bmp|webp)$/i.test(filename);
@@ -116,10 +120,21 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 				)}
 			</DialogContent>
 			<DialogActions>
-				<Button onClick={onPrevious} startIcon={<ArrowBackIcon />}>
+				<Button
+					onClick={onPrevious}
+					disabled={getCurrentFileIndex() <= 0}
+					startIcon={<ArrowBackIcon />}
+				>
 					前へ
 				</Button>
-				<Button onClick={onNext} endIcon={<ArrowForwardIcon />}>
+				<Button
+					onClick={onNext}
+					disabled={
+						getCurrentFileIndex() === sortedFiles.length - 1 ||
+						getCurrentFileIndex() === -1
+					}
+					endIcon={<ArrowForwardIcon />}
+				>
 					次へ
 				</Button>
 			</DialogActions>

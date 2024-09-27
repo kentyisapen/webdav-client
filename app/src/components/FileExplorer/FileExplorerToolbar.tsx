@@ -17,6 +17,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 interface FileExplorerToolbarProps {
 	sortField: "name" | "lastModified";
 	sortOrder: "asc" | "desc" | "random";
+	currentPath: string;
 	onSortFieldChange: (field: "name" | "lastModified") => void;
 	onSortOrderChange: (order: "asc" | "desc" | "random") => void;
 	onCreateFolder: () => void;
@@ -27,6 +28,7 @@ interface FileExplorerToolbarProps {
 const FileExplorerToolbar: React.FC<FileExplorerToolbarProps> = ({
 	sortField,
 	sortOrder,
+	currentPath,
 	onSortFieldChange,
 	onSortOrderChange,
 	onCreateFolder,
@@ -40,7 +42,11 @@ const FileExplorerToolbar: React.FC<FileExplorerToolbarProps> = ({
 			alignItems="center"
 			p={2}
 		>
-			<IconButton onClick={onGoBack} disabled={false} color="primary">
+			<IconButton
+				onClick={onGoBack}
+				disabled={currentPath === "/"}
+				color="primary"
+			>
 				<ArrowBackIcon />
 			</IconButton>
 			<Box>
