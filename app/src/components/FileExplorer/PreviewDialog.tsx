@@ -42,11 +42,18 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 	setImageLoadError,
 	getCurrentFileIndex,
 }) => {
-	const { client } = useContext(WebDAVContext);
+	const { client, disconnect, baseUrl, loading } = useContext(WebDAVContext);
 	const [textContent, setTextContent] = useState<string>("");
 	const [showSuccess, setShowSuccess] = useState<boolean>(false);
 	const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 	const [isPutting, setIsPutting] = useState<boolean>(false);
+	const [preloadedIndices, setPreloadedIndices] = useState<Set<number>>(
+		new Set()
+	);
+
+	const makeCompressedHref = (file: FileItem): string => {
+		return `${baseUrl}/compressed/${file.filename}`;
+	};
 
 	const isImage = (filename: string) =>
 		/\.(jpeg|jpg|png|gif|bmp|webp)$/i.test(filename);
@@ -105,6 +112,58 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 		}
 	};
 
+	// 前後3つのファイルをプリロードする関数
+	const preloadAdjacentFiles = (indices: number[]) => {
+		const newPreloaded = new Set(preloadedIndices);
+
+		indices.forEach((index) => {
+			if (
+				index >= 0 &&
+				index < sortedFiles.length &&
+				!newPreloaded.has(index)
+			) {
+				const file = sortedFiles[index];
+				if (isImage(file.basename) || isVideo(file.basename)) {
+					// 画像のプリロード
+					if (isImage(file.basename)) {
+						const img = new Image();
+						img.src = file.href;
+					}
+
+					// 動画のプリロード
+					if (isVideo(file.basename)) {
+						const video = document.createElement("video");
+						video.src = file.href;
+						video.preload = "auto";
+					}
+
+					// プリロード済みとしてマーク
+					newPreloaded.add(index);
+				}
+			}
+		});
+
+		setPreloadedIndices(newPreloaded);
+	};
+
+	useEffect(() => {
+		if (file) {
+			const currentIndex = getCurrentFileIndex();
+			const initialPreloadIndices: number[] = [];
+
+			for (let i = 1; i <= 3; i++) {
+				const prevIndex = currentIndex - i;
+				const nextIndex = currentIndex + i;
+
+				if (prevIndex >= 0) initialPreloadIndices.push(prevIndex);
+				if (nextIndex < sortedFiles.length)
+					initialPreloadIndices.push(nextIndex);
+			}
+
+			preloadAdjacentFiles(initialPreloadIndices);
+		}
+	}, [file, sortedFiles]);
+
 	return (
 		<>
 			<Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -118,7 +177,7 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 						<Close />
 					</IconButton>
 				</DialogTitle>
-				<DialogContent dividers>
+				<DialogContent dividers key={file?.filename}>
 					{file && isImage(file.basename) && (
 						<Box
 							component="img"
@@ -126,16 +185,15 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 							alt={file.basename}
 							sx={{
 								width: "100%",
-								height: "auto",
-								maxHeight: "80vh",
+								height: "80vh",
 								objectFit: "contain",
 							}}
 						/>
 					)}
 					{file && isVideo(file.basename) && (
-						<video controls loop style={{ width: "100%" }}>
+						<video controls loop style={{ width: "100%", height: "80vh" }}>
 							<source
-								src={file.href}
+								src={makeCompressedHref(file)}
 								type={`video/${file.basename.split(".").pop()}`}
 							/>
 							Your browser does not support the video tag.

@@ -29,7 +29,7 @@ const FileList: React.FC<FileListProps> = ({
 	onMenuOpen,
 }) => {
 	return (
-		<Grid container rowSpacing={6} columnSpacing={2}>
+		<Grid container rowSpacing={2} columnSpacing={2}>
 			{files.map((file) => (
 				<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
 					<Box
@@ -38,7 +38,7 @@ const FileList: React.FC<FileListProps> = ({
 							borderRadius: "8px",
 							p: 2,
 							textAlign: "center",
-							height: "100%",
+							height: "200px",
 							display: "flex",
 							flexDirection: "column",
 							justifyContent: "space-between",

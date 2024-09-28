@@ -361,7 +361,6 @@ const FileExplorerScreen: React.FC = () => {
 
 			{/* Preview Dialog */}
 			<PreviewDialog
-				key={previewFile?.href}
 				open={previewOpen}
 				file={previewFile}
 				sortedFiles={sortedFiles}
