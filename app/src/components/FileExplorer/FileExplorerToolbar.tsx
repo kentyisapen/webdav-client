@@ -1,25 +1,28 @@
 // src/components/FileExplorer/FileExplorerToolbar.tsx
 
-import React from "react";
+import React, { useState } from "react";
 import {
 	Box,
 	Button,
-	FormControl,
-	InputLabel,
-	Select,
-	MenuItem,
 	IconButton,
+	ListItemIcon,
+	ListItemText,
+	Menu,
+	MenuItem,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import UploadIcon from "@mui/icons-material/Upload";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
+import { CreateNewFolder, InsertDriveFile } from "@mui/icons-material";
 
 interface FileExplorerToolbarProps {
-	sortField: "name" | "lastModified";
-	sortOrder: "asc" | "desc" | "random";
+	sortField: "name" | "lastModified" | "random";
+	sortOrder: "asc" | "desc";
 	currentPath: string;
-	onSortFieldChange: (field: "name" | "lastModified") => void;
-	onSortOrderChange: (order: "asc" | "desc" | "random") => void;
+	onSortFieldChange: (field: "name" | "lastModified" | "random") => void;
+	onSortOrderChange: (order: "asc" | "desc") => void;
 	onCreateFolder: () => void;
 	onUpload: () => void;
 	onGoBack: () => void;
@@ -35,6 +38,52 @@ const FileExplorerToolbar: React.FC<FileExplorerToolbarProps> = ({
 	onUpload,
 	onGoBack,
 }) => {
+	// State for SortField Menu
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const openMenu = Boolean(anchorEl);
+
+	const handleSortFieldClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+		setAnchorEl(event.currentTarget);
+	};
+
+	const handleSortFieldClose = () => {
+		setAnchorEl(null);
+	};
+
+	const handleSortFieldSelect = (field: "name" | "lastModified" | "random") => {
+		onSortFieldChange(field);
+		handleSortFieldClose();
+	};
+
+	// Toggle SortOrder between 'asc' and 'desc'
+	const handleSortOrderToggle = () => {
+		const newOrder = sortOrder === "asc" ? "desc" : "asc";
+		onSortOrderChange(newOrder);
+	};
+
+	const [anchorElNewMenu, setAnchorElNewMenu] = useState<null | HTMLElement>(
+		null
+	);
+	const openNewMenu = Boolean(anchorElNewMenu);
+
+	const handleNewMenuClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+		setAnchorElNewMenu(event.currentTarget);
+	};
+
+	const handleNewMenuClose = () => {
+		setAnchorElNewMenu(null);
+	};
+
+	const handleCreateFolder = () => {
+		onCreateFolder();
+		handleNewMenuClose();
+	};
+
+	const handleUpload = () => {
+		onUpload();
+		handleNewMenuClose();
+	};
+
 	return (
 		<Box
 			display="flex"
@@ -49,54 +98,80 @@ const FileExplorerToolbar: React.FC<FileExplorerToolbarProps> = ({
 			>
 				<ArrowBackIcon />
 			</IconButton>
-			<Box>
-				<FormControl sx={{ minWidth: 150, ml: 2 }}>
-					<InputLabel id="sort-field-label">ソート基準</InputLabel>
-					<Select
-						labelId="sort-field-label"
-						value={sortField}
-						label="ソート基準"
-						onChange={(e) =>
-							onSortFieldChange(e.target.value as "name" | "lastModified")
-						}
-						disabled={sortOrder === "random"}
+			<Box display="flex" alignItems="center">
+				{/* SortField Button */}
+				<Button
+					variant="outlined"
+					onClick={handleSortFieldClick}
+					sx={{ mr: 2 }}
+				>
+					{sortField === "name"
+						? "名前順"
+						: sortField === "lastModified"
+						? "最終更新順"
+						: "ランダム順"}
+				</Button>
+				<Menu
+					anchorEl={anchorEl}
+					open={openMenu}
+					onClose={handleSortFieldClose}
+				>
+					<MenuItem
+						selected={sortField === "name"}
+						onClick={() => handleSortFieldSelect("name")}
 					>
-						<MenuItem value="name">名前</MenuItem>
-						<MenuItem value="lastModified">最終更新</MenuItem>
-					</Select>
-				</FormControl>
+						名前順
+					</MenuItem>
+					<MenuItem
+						selected={sortField === "lastModified"}
+						onClick={() => handleSortFieldSelect("lastModified")}
+					>
+						最終更新順
+					</MenuItem>
+					<MenuItem
+						selected={sortField === "random"}
+						onClick={() => handleSortFieldSelect("random")}
+					>
+						ランダム順
+					</MenuItem>
+				</Menu>
 
-				<FormControl sx={{ minWidth: 150, ml: 2 }}>
-					<InputLabel id="sort-order-label">ソート順</InputLabel>
-					<Select
-						labelId="sort-order-label"
-						value={sortOrder}
-						label="ソート順"
-						onChange={(e) =>
-							onSortOrderChange(e.target.value as "asc" | "desc" | "random")
-						}
-					>
-						<MenuItem value="asc">昇順</MenuItem>
-						<MenuItem value="desc">降順</MenuItem>
-						<MenuItem value="random">ランダム順</MenuItem>
-					</Select>
-				</FormControl>
+				{/* SortOrder IconButton */}
+				<IconButton
+					onClick={handleSortOrderToggle}
+					disabled={sortField === "random"}
+					color="primary"
+				>
+					{sortOrder === "asc" ? <ArrowUpward /> : <ArrowDownward />}
+				</IconButton>
+
+				{/* New Button with Menu */}
 				<Button
 					variant="contained"
 					startIcon={<AddIcon />}
-					sx={{ ml: 2 }}
-					onClick={onCreateFolder}
+					sx={{ ml: 4 }}
+					onClick={handleNewMenuClick}
 				>
-					新規フォルダ作成
+					新規
 				</Button>
-				<Button
-					variant="contained"
-					startIcon={<UploadIcon />}
-					sx={{ ml: 2 }}
-					onClick={onUpload}
+				<Menu
+					anchorEl={anchorElNewMenu}
+					open={openNewMenu}
+					onClose={handleNewMenuClose}
 				>
-					アップロード
-				</Button>
+					<MenuItem onClick={handleCreateFolder}>
+						<ListItemIcon>
+							<CreateNewFolder fontSize="small" />
+						</ListItemIcon>
+						<ListItemText>フォルダの新規作成</ListItemText>
+					</MenuItem>
+					<MenuItem onClick={handleUpload}>
+						<ListItemIcon>
+							<InsertDriveFile fontSize="small" />
+						</ListItemIcon>
+						<ListItemText>ファイルのアップロード</ListItemText>
+					</MenuItem>
+				</Menu>
 			</Box>
 		</Box>
 	);

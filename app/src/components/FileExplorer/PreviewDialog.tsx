@@ -85,16 +85,16 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 		}
 
 		debounceTimer.current = setTimeout(() => {
-			handlePut();
-		}, 1000);
+			handlePut(e.target.value);
+		}, 500);
 	};
 
 	// PUTリクエストを実行
-	const handlePut = async () => {
+	const handlePut = async (text: string) => {
 		if (!file || !client) return;
 		setIsPutting(true);
 		try {
-			await client.putFileContents(file.filename, textContent, {
+			await client.putFileContents(file.filename, text, {
 				overwrite: true,
 			});
 			setShowSuccess(true);
@@ -104,21 +104,6 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 			setIsPutting(false);
 		}
 	};
-
-	// PUTリクエストを中断する（タイマーをクリア）
-	const handleAbortPut = () => {
-		if (debounceTimer.current) {
-			clearTimeout(debounceTimer.current);
-			debounceTimer.current = null;
-		}
-	};
-
-	// ダイアログが閉じられる際にPUTを中断
-	useEffect(() => {
-		if (!open) {
-			handleAbortPut();
-		}
-	}, [open]);
 
 	return (
 		<>

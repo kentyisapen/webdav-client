@@ -8,7 +8,7 @@ import React, {
 	useRef,
 } from "react";
 import { WebDAVContext } from "../../contexts/WebDAVContext";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import FileExplorerHeader from "./FileExplorerHeader";
 import FileExplorerToolbar from "./FileExplorerToolbar";
 import FileList from "./FileList";
@@ -45,10 +45,10 @@ const FileExplorerScreen: React.FC = () => {
 	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
 	const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 	const [previewOpen, setPreviewOpen] = useState<boolean>(false);
-	const [sortField, setSortField] = useState<"name" | "lastModified">(
-		"lastModified"
-	);
-	const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "random">("desc");
+	const [sortField, setSortField] = useState<
+		"name" | "lastModified" | "random"
+	>("lastModified");
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 	const [sortedFiles, setSortedFiles] = useState<FileItem[]>([]);
 	const [imageLoadError, setImageLoadError] = useState<boolean>(false);
 
@@ -60,6 +60,7 @@ const FileExplorerScreen: React.FC = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+	const [searchParams, setSearchParams] = useSearchParams();
 
 	// ファイル一覧を取得する関数
 	const fetchFiles = useCallback(async () => {
@@ -126,9 +127,23 @@ const FileExplorerScreen: React.FC = () => {
 		};
 	}, [files.length]);
 
+	useEffect(() => {
+		if (files.length === 0) return;
+		const previewFilename = searchParams.get("preview");
+		if (previewFilename) {
+			const fileToPreview = files.find(
+				(file) => file.filename === previewFilename
+			);
+			if (fileToPreview) {
+				setPreviewFile(fileToPreview);
+				setPreviewOpen(true);
+			}
+		}
+	}, [files, searchParams]);
+
 	// ファイルリストをソートする関数
 	const sortFiles = (files: FileItem[]): FileItem[] => {
-		if (sortOrder === "random") {
+		if (sortField === "random") {
 			return shuffleArray(files);
 		}
 
@@ -271,6 +286,7 @@ const FileExplorerScreen: React.FC = () => {
 	const handleFileClick = (file: FileItem) => {
 		setPreviewFile(file);
 		setPreviewOpen(true);
+		setSearchParams({ preview: file.filename });
 	};
 
 	return (
@@ -349,7 +365,11 @@ const FileExplorerScreen: React.FC = () => {
 				open={previewOpen}
 				file={previewFile}
 				sortedFiles={sortedFiles}
-				onClose={() => setPreviewOpen(false)}
+				onClose={() => {
+					setPreviewOpen(false);
+					setPreviewFile(null);
+					setSearchParams({});
+				}}
 				onPrevious={handlePreviousFile}
 				onNext={handleNextFile}
 				imageLoadError={imageLoadError}
