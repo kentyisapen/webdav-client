@@ -189,7 +189,7 @@ const FileExplorerScreen: React.FC = () => {
 			const parentPath = "/" + segments.slice(0, -1).join("/");
 			navigate(`/explorer${parentPath}`);
 		} else {
-			navigate("/");
+			navigate("/explorer");
 		}
 	};
 
