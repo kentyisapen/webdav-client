@@ -14,3 +14,4 @@ services:
     ports:
       - 3006:3006
     stdin_open: true #標準入力をコンテナと紐付ける
+    restart: always

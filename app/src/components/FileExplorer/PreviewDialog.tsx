@@ -71,7 +71,7 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 					/>
 				)}
 				{file && isVideo(file.basename) && (
-					<video controls style={{ width: "100%" }}>
+					<video controls loop style={{ width: "100%" }}>
 						<source
 							src={file.href}
 							type={`video/${file.basename.split(".").pop()}`}
