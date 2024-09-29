@@ -185,13 +185,13 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 							alt={file.basename}
 							sx={{
 								width: "100%",
-								height: "80vh",
+								height: "60vh",
 								objectFit: "contain",
 							}}
 						/>
 					)}
 					{file && isVideo(file.basename) && (
-						<video controls loop style={{ width: "100%", height: "80vh" }}>
+						<video controls loop style={{ width: "100%", maxHeight: "60vh" }}>
 							<source
 								src={makeCompressedHref(file)}
 								type={`video/${file.basename.split(".").pop()}`}
