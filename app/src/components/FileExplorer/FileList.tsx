@@ -1,11 +1,12 @@
 // src/components/FileExplorer/FileList.tsx
 
-import React from "react";
+import React, { useContext } from "react";
 import { Box, Typography, IconButton, Stack } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Grid from "@mui/material/Grid2";
+import { WebDAVContext } from "../../contexts/WebDAVContext";
 
 interface FileItem {
 	basename: string;
@@ -28,6 +29,17 @@ const FileList: React.FC<FileListProps> = ({
 	onNavigate,
 	onMenuOpen,
 }) => {
+	const { baseUrl } = useContext(WebDAVContext);
+	const makeThumbnailslHref = (file: FileItem): string => {
+		return `${baseUrl}/.thumbnails/${file.filename}.thumb.jpg`;
+	};
+
+	const isVideo = (filename: string) =>
+		/\.(mp4|mov|avi|wmv|flv|mkv)$/i.test(filename);
+	const isPDF = (filename: string) => /\.(pdf)$/i.test(filename);
+	const isImage = (filename: string) =>
+		/\.(jpeg|jpg|png|gif|bmp|webp)$/i.test(filename);
+
 	return (
 		<Grid container rowSpacing={2} columnSpacing={2}>
 			{files.map((file) => (
@@ -74,7 +86,21 @@ const FileList: React.FC<FileListProps> = ({
 						<Box>
 							{file.type === "directory" ? (
 								<FolderIcon fontSize="large" />
+							) : isVideo(file.filename) ||
+							  isPDF(file.filename) ||
+							  isImage(file.filename) ? (
+								<Box
+									sx={{
+										objectFit: "contain",
+										width: "100%",
+										height: "160px",
+									}}
+									component="img"
+									loading="lazy"
+									src={makeThumbnailslHref(file)}
+								/>
 							) : (
+								// <InsertDriveFileIcon fontSize="large" />
 								<InsertDriveFileIcon fontSize="large" />
 							)}
 						</Box>

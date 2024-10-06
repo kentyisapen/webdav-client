@@ -52,7 +52,7 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 	);
 
 	const makeCompressedHref = (file: FileItem): string => {
-		return `${baseUrl}/compressed/${file.filename}`;
+		return `${baseUrl}/.compressed/${file.filename}`;
 	};
 
 	const isImage = (filename: string) =>
