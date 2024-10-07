@@ -142,7 +142,7 @@ const FileExplorerScreen: React.FC = () => {
 	}, [files, searchParams]);
 
 	// ファイルリストをソートする関数
-	const sortFiles = (files: FileItem[]): FileItem[] => {
+	const sortFiles = useCallback((files: FileItem[]): FileItem[] => {
 		if (sortField === "random") {
 			return shuffleArray(files);
 		}
@@ -159,12 +159,12 @@ const FileExplorerScreen: React.FC = () => {
 
 			return sortOrder === "asc" ? compare : -compare;
 		});
-	};
+	},[sortField, sortOrder]);
 
 	// ソート後のファイルリストを設定
 	useEffect(() => {
 		setSortedFiles(sortFiles(files));
-	}, [files, sortField, sortOrder]);
+	}, [files, sortField, sortOrder, sortFiles]);
 
 	// プレビュー対象ファイルが変更された際にエラーフラグをリセット
 	useEffect(() => {
