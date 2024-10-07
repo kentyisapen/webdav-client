@@ -39,10 +39,12 @@ const FileList: React.FC<FileListProps> = ({
 	const isPDF = (filename: string) => /\.(pdf)$/i.test(filename);
 	const isImage = (filename: string) =>
 		/\.(jpeg|jpg|png|gif|bmp|webp)$/i.test(filename);
-
+	const isHidden = (filename: string) => 
+		 /^\/\..*/i.test(filename);
+	
 	return (
 		<Grid container rowSpacing={2} columnSpacing={2}>
-			{files.map((file) => (
+			{files.filter((file) => !isHidden(file.filename)).map((file) => (
 				<Grid key={file.href} size={{ xs: 6, sm: 4, md: 2 }}>
 					<Box
 						sx={{
