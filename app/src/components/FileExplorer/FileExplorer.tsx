@@ -65,6 +65,7 @@ const FileExplorerScreen: React.FC = () => {
 	// ファイル一覧を取得する関数
 	const fetchFiles = useCallback(async () => {
 		if (!client || !baseUrl) return;
+		setFiles([]);
 		setLoadingFiles(true);
 		try {
 			const contents = (await client.getDirectoryContents(
