@@ -166,7 +166,7 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 
 	return (
 		<>
-			<Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+			<Dialog open={open} onClose={onClose} fullScreen maxWidth="md">
 				<DialogTitle>
 					{file?.basename}
 					<IconButton
@@ -185,7 +185,7 @@ const PreviewDialog: React.FC<PreviewDialogProps> = ({
 							alt={file.basename}
 							sx={{
 								width: "100%",
-								height: "60vh",
+								height: "80vh",
 								objectFit: "contain",
 							}}
 						/>
