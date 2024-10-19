@@ -97,7 +97,6 @@ const FileExplorerScreen: React.FC = () => {
 			navigate("/");
 			return;
 		}
-
 		fetchFiles();
 	}, [client, baseUrl, currentPath, navigate, loading, fetchFiles]);
 
@@ -143,29 +142,32 @@ const FileExplorerScreen: React.FC = () => {
 	}, [files, searchParams]);
 
 	// ファイルリストをソートする関数
-	const sortFiles = (files: FileItem[]): FileItem[] => {
-		if (sortField === "random") {
-			return shuffleArray(files);
-		}
-
-		return [...files].sort((a, b) => {
-			let compare = 0;
-			if (sortField === "name") {
-				compare = a.basename.localeCompare(b.basename);
-			} else if (sortField === "lastModified") {
-				const aDate = new Date(a.lastModified);
-				const bDate = new Date(b.lastModified);
-				compare = aDate.getTime() - bDate.getTime();
+	const sortFiles = useCallback(
+		(files: FileItem[]): FileItem[] => {
+			if (sortField === "random") {
+				return shuffleArray(files);
 			}
 
-			return sortOrder === "asc" ? compare : -compare;
-		});
-	};
+			return [...files].sort((a, b) => {
+				let compare = 0;
+				if (sortField === "name") {
+					compare = a.basename.localeCompare(b.basename);
+				} else if (sortField === "lastModified") {
+					const aDate = new Date(a.lastModified);
+					const bDate = new Date(b.lastModified);
+					compare = aDate.getTime() - bDate.getTime();
+				}
+
+				return sortOrder === "asc" ? compare : -compare;
+			});
+		},
+		[sortField, sortOrder]
+	);
 
 	// ソート後のファイルリストを設定
 	useEffect(() => {
 		setSortedFiles(sortFiles(files));
-	}, [files, sortField, sortOrder]);
+	}, [files, sortField, sortOrder, sortFiles]);
 
 	// プレビュー対象ファイルが変更された際にエラーフラグをリセット
 	useEffect(() => {
